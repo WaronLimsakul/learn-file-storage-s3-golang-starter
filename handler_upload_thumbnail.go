@@ -52,8 +52,11 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// DON'T media type from r.Header.Get(), it's gonna give you
-	// multi-part form instead of those "image/png", "image/jpg"
+	// anything that can be opend (e.g. file), must be close
+	defer thumbnailReqFile.Close()
+
+	// DON'T get media type from r.Header.Get(), it's gonna give you
+	// "multi-part form" instead of those "image/png", "image/jpg"
 	// you must get it from header of the parsed file
 	fileContentType := reqFileHeader.Header.Get("Content-Type")
 	mediaType, _, err := mime.ParseMediaType(fileContentType)
