@@ -83,24 +83,58 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// .Seek() redirect tmpFile's file pointer to ...
-	// 0 means the the start of ...
-	// io.SeekStart means file starting point ...
-	_, err = tmpFile.Seek(0, io.SeekStart)
+	ratio, err := getVideoAspectRatio(tmpFile.Name())
 	if err != nil {
-		const msg = "Could't redirect temp file pointer back"
+		const msg = "Couldn't get video aspect ratio"
 		respondWithError(w, http.StatusInternalServerError, msg, err)
 		return
 	}
 
+	var videoOrientation string
+	if ratio == "16:9" {
+		videoOrientation = "landscape"
+	} else if ratio == "9:16" {
+		videoOrientation = "portrait"
+	} else {
+		videoOrientation = "other"
+	}
+
+	// .Seek() redirect tmpFile's file pointer to ...
+	// 0 means the the start of ...
+	// io.SeekStart means file starting point ...
+	// _, err = tmpFile.Seek(0, io.SeekStart)
+	// if err != nil {
+	// 	const msg = "Could't redirect temp file pointer back"
+	// 	respondWithError(w, http.StatusInternalServerError, msg, err)
+	// 	return
+	// }
+
+	processedFilePath, err := processVideoForFastStart(tmpFile.Name())
+	if err != nil {
+		const msg = "Couldn't process the file to fast start"
+		respondWithError(w, http.StatusInternalServerError, msg, err)
+		return
+	}
+
+	processedFile, err := os.Open(processedFilePath)
+	if err != nil {
+		const msg = "Couldn't open processed file"
+		respondWithError(w, http.StatusInternalServerError, msg, err)
+		return
+	}
+
+	defer os.Remove(processedFilePath)
+	defer processedFile.Close()
+
 	var rand32Bytes [32]byte
 	rand.Read(rand32Bytes[:])
 	videoKey := base64.RawURLEncoding.EncodeToString(rand32Bytes[:])
+	videoKey = videoOrientation + "/" + videoKey // add prefix
 
 	putObjectParams := s3.PutObjectInput{
 		Bucket:      &cfg.s3Bucket,
 		Key:         &videoKey,
-		Body:        tmpFile,
+		Body:        processedFile,
 		ContentType: &mediaType,
 	}
 
