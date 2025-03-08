@@ -147,19 +147,11 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Use this format so we can get presigned url easily
-	newVideoURL := fmt.Sprintf("%s,%s", cfg.s3Bucket, videoKey)
+	newVideoURL := fmt.Sprintf("%s/%s", cfg.s3CfDistribution, videoKey)
 	videoMetaData.VideoURL = &newVideoURL
 	err = cfg.db.UpdateVideo(videoMetaData)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't update vidoe url", err)
-		return
-	}
-
-	// just test if we can get a presigned url from this
-	_, err = cfg.dbVideoToSignedVideo(videoMetaData)
-	if err != nil {
-		const msg = "Couldn't test presigned url in video upload handler"
-		respondWithError(w, http.StatusInternalServerError, msg, err)
 		return
 	}
 
